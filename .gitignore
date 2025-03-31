@@ -27,4 +27,11 @@ yarn-error.log*
 
 # OS files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Include client directory contents
+!client/
+!client/src/
+!client/public/
+!client/package.json
+!client/package-lock.json 
