@@ -13,9 +13,11 @@ const openai = new OpenAI({
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://pathpilot.onrender.com', 'https://pathpilot-backend.onrender.com'] 
+    ? ['https://pathpilot-frontend.onrender.com', 'https://pathpilot.onrender.com'] 
     : 'http://localhost:3000',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
