@@ -108,10 +108,12 @@ function App() {
     setHistoryIndex(-1);
 
     try {
+      console.log('Sending request to:', `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/decide`);
       const result = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/decide`, { 
         prompt: userMessage,
         threadId 
       });
+      console.log('Received response:', result.data);
       setMessages(prev => [...prev, { 
         type: 'assistant', 
         content: result.data.response,
@@ -119,8 +121,12 @@ function App() {
       }]);
       setThreadId(result.data.threadId);
     } catch (err) {
-      setError('Failed to get response. Please try again.');
-      console.error('Error:', err);
+      console.error('Detailed error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      setError(err.response?.data?.error || err.response?.data?.details || 'Failed to get response. Please try again.');
       // Reset thread ID if we get a thread not found error
       if (err.response?.data?.error?.message?.includes('No thread found')) {
         setThreadId(null);
