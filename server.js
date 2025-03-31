@@ -81,38 +81,60 @@ function cleanResponse(content) {
 // Endpoint to get AI assistance for decision making
 app.post('/api/decide', async (req, res) => {
   try {
+    console.log('Received request:', {
+      body: req.body,
+      headers: req.headers,
+      url: req.url
+    });
+
     const { prompt, threadId } = req.body;
     
     // Use existing thread or create a new one
     let thread;
     if (threadId) {
+      console.log('Using existing thread:', threadId);
       thread = { id: threadId };
     } else {
+      console.log('Creating new thread');
       thread = await openai.beta.threads.create();
+      console.log('Created new thread:', thread.id);
     }
     
     // Add the user's message to the thread
+    console.log('Adding message to thread:', { threadId: thread.id, prompt });
     await openai.beta.threads.messages.create(thread.id, {
       role: "user",
       content: prompt
     });
     
     // Run the assistant with function calling enabled
+    console.log('Creating run with assistant:', ASSISTANT_ID);
     const run = await openai.beta.threads.runs.create(thread.id, {
       assistant_id: ASSISTANT_ID,
       tools: [{ type: "function", function: functions[0] }]
     });
+    console.log('Created run:', run.id);
     
     // Wait for the run to complete
     let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+    console.log('Initial run status:', runStatus.status);
+    
     while (runStatus.status === 'in_progress' || runStatus.status === 'queued') {
       await new Promise(resolve => setTimeout(resolve, 1000));
       runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      console.log('Updated run status:', runStatus.status);
+    }
+    
+    if (runStatus.status === 'failed') {
+      console.error('Run failed:', runStatus.last_error);
+      throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
     }
     
     // Get the assistant's response
+    console.log('Retrieving messages for thread:', thread.id);
     const messages = await openai.beta.threads.messages.list(thread.id);
     const lastMessage = messages.data[0];
+    console.log('Last message:', lastMessage);
     
     // Parse the function call and clean the response
     let isComplete = false;
@@ -135,6 +157,7 @@ app.post('/api/decide', async (req, res) => {
       response = cleanResponse(rawMessage);
     }
     
+    console.log('Sending response:', { response, isComplete, threadId: thread.id });
     // Send response with thread ID
     res.json({
       response,
@@ -142,13 +165,17 @@ app.post('/api/decide', async (req, res) => {
       threadId: thread.id
     });
     
-    // Only delete the thread if the conversation is complete
-    // if (isComplete) {
-    //   await openai.beta.threads.del(thread.id);
-    // }
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Detailed error:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    res.status(500).json({ 
+      error: error.message,
+      details: error.response?.data || 'No additional details available'
+    });
   }
 });
 
