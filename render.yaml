@@ -10,12 +10,9 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: static
+  - type: static-site
     name: pathpilot-frontend
-    buildCommand: |
-      cd client
-      npm install
-      npm run build
+    buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/build
     envVars:
       - key: REACT_APP_API_URL
