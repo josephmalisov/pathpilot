@@ -14,7 +14,7 @@ services:
     name: pathpilot-frontend
     runtime: static
     env: node
-    buildCommand: cd client && npm install && node node_modules/react-scripts/scripts/build.js
+    buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/build
     envVars:
       - key: REACT_APP_API_URL
