@@ -13,7 +13,7 @@ services:
   - type: web
     name: pathpilot-frontend
     runtime: static
-    buildCommand: pwd && ls -la && cd client && pwd && ls -la && npm install && npm run build
+    buildCommand: cd client && npm install && ./node_modules/.bin/react-scripts build
     staticPublishPath: ./client/build
     envVars:
       - key: REACT_APP_API_URL
