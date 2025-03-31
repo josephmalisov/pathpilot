@@ -108,12 +108,26 @@ function App() {
     setHistoryIndex(-1);
 
     try {
-      console.log('Sending request to:', `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/decide`);
-      const result = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/decide`, { 
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/decide`;
+      console.log('Sending request to:', apiUrl);
+      console.log('Request payload:', { prompt: userMessage, threadId });
+      
+      const result = await axios.post(apiUrl, { 
         prompt: userMessage,
         threadId 
+      }, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
       console.log('Received response:', result.data);
+      
+      if (!result.data || !result.data.response) {
+        throw new Error('Invalid response format from server');
+      }
+      
       setMessages(prev => [...prev, { 
         type: 'assistant', 
         content: result.data.response,
@@ -124,9 +138,21 @@ function App() {
       console.error('Detailed error:', {
         message: err.message,
         response: err.response?.data,
-        status: err.response?.status
+        status: err.response?.status,
+        code: err.code,
+        timeout: err.code === 'ECONNABORTED'
       });
-      setError(err.response?.data?.error || err.response?.data?.details || 'Failed to get response. Please try again.');
+      
+      let errorMessage = 'Failed to get response. Please try again.';
+      if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (err.response?.status === 500) {
+        errorMessage = err.response.data?.error || err.response.data?.details || errorMessage;
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Server not found. Please check your connection.';
+      }
+      
+      setError(errorMessage);
       // Reset thread ID if we get a thread not found error
       if (err.response?.data?.error?.message?.includes('No thread found')) {
         setThreadId(null);
