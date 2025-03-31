@@ -10,10 +10,11 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: static
+  - type: web
     name: pathpilot-frontend
+    runtime: static
     buildCommand: cd client && npm install && npm run build
-    publishPath: client/build
+    staticPublishPath: client/build
     envVars:
       - key: REACT_APP_API_URL
         value: https://pathpilot-backend.onrender.com 
