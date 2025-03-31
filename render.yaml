@@ -10,8 +10,9 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: static_site
+  - type: web
     name: pathpilot-frontend
+    runtime: static
     buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/build
     envVars:
