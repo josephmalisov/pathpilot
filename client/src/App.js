@@ -12,7 +12,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider,
   CssBaseline,
   ButtonGroup
 } from '@mui/material';
@@ -72,7 +71,6 @@ function App() {
   const [error, setError] = useState('');
   const [messageHistory, setMessageHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [pathPlanComplete, setPathPlanComplete] = useState(false);
   const [threadId, setThreadId] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -103,7 +101,6 @@ function App() {
     setInput('');
     setLoading(true);
     setError('');
-    setPathPlanComplete(false);
     
     // Add user message to chat and history
     setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
@@ -115,8 +112,11 @@ function App() {
         prompt: userMessage,
         threadId 
       });
-      setMessages(prev => [...prev, { type: 'assistant', content: result.data.response }]);
-      setPathPlanComplete(result.data.isComplete);
+      setMessages(prev => [...prev, { 
+        type: 'assistant', 
+        content: result.data.response,
+        isComplete: result.data.isComplete 
+      }]);
       setThreadId(result.data.threadId);
     } catch (err) {
       setError('Failed to get response. Please try again.');
@@ -160,92 +160,6 @@ function App() {
       title: 'Your PathPilot Plan',
       subtitle: new Date().toLocaleDateString()
     });
-  };
-
-  const renderMessage = (message, index) => {
-    const isUser = message.type === 'user';
-    const isAssistant = message.type === 'assistant';
-    const isSystem = message.type === 'system';
-
-    if (isSystem) return null;
-
-    return (
-      <Box
-        key={index}
-        sx={{
-          display: 'flex',
-          justifyContent: isUser ? 'flex-end' : 'flex-start',
-          mb: 2,
-          mt: 0,
-        }}
-      >
-        <Box
-          sx={{
-            maxWidth: '80%',
-            backgroundColor: isUser ? 'rgba(144, 202, 249, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-            color: isUser ? 'white' : 'text.primary',
-            borderRadius: 2,
-            p: 2,
-            position: 'relative',
-            border: 'none',
-          }}
-        >
-          <Typography
-            component="div"
-            sx={{
-              whiteSpace: 'pre-wrap',
-              fontSize: '0.95em',
-              '& p': { mb: 0.15, lineHeight: 1.2 },
-              '& ul, & ol': { pl: 1.25, mb: 0.15 },
-              '& li': { mb: 0.1, lineHeight: 1.2 },
-              '& h1, & h2, & h3, & h4, & h5, & h6': { 
-                color: isUser ? 'white' : 'primary.main',
-                mt: 0.15,
-                mb: 0.15,
-                fontWeight: 'bold',
-                lineHeight: 1.2,
-                fontSize: '1.1em'
-              },
-              '& code': {
-                backgroundColor: isUser ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                padding: '0 2px',
-                borderRadius: 1,
-                fontFamily: 'monospace',
-                fontSize: '0.8em'
-              },
-              '& blockquote': {
-                borderLeft: `2px solid ${isUser ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)'}`,
-                pl: 0.75,
-                ml: 0,
-                fontStyle: 'italic',
-                my: 0.15
-              },
-            }}
-          >
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-            {message.type === 'assistant' && message.content.includes('**PathPlan:') && (
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => handleExportPDF(message.content)}
-                sx={{ 
-                  color: 'primary.main',
-                  borderColor: 'primary.main',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    backgroundColor: 'rgba(144, 202, 249, 0.15)',
-                  },
-                }}
-              >
-                Export Plan
-              </Button>
-            )}
-          </Box>
-        </Box>
-      </Box>
-    );
   };
 
   return (
@@ -328,7 +242,7 @@ function App() {
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                      {message.type === 'assistant' && message.content.includes('**PathPlan:') && (
+                      {message.type === 'assistant' && message.isComplete && (
                         <Button
                           variant="outlined"
                           size="small"
