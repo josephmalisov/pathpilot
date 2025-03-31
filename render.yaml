@@ -15,9 +15,12 @@ services:
     env: static
     buildCommand: |
       cd client
+      rm -rf node_modules package-lock.json
       npm install
-      CI=false npm run build
+      NODE_ENV=production CI=false npm run build
     staticPublishPath: ./client/build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://pathpilot-backend.onrender.com 
+        value: https://pathpilot-backend.onrender.com
+      - key: NODE_ENV
+        value: production 
