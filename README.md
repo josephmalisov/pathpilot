@@ -1,6 +1,6 @@
 # PathPilot
 
-PathPilot is an AI-powered decision-making assistant that helps users create structured plans for their goals and decisions. Built with React and OpenAI's GPT-4, it provides a clean, modern interface for generating and exporting detailed action plans.
+PathPilot is an AI-powered decision-making assistant that helps users understand their options and create structured plans for their goals. Built with React and OpenAI's GPT-4, it provides a clean, modern interface for generating and exporting detailed action plans.
 
 ## Features
 
