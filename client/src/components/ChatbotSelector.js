@@ -10,9 +10,21 @@ import {
 } from '@mui/material';
 
 const chatbots = [
-  { id: 'path-planner', name: 'Path Planner' },
-  { id: 'atomic-habits', name: 'Atomic Habits' },
-  { id: 'essentialist', name: 'Essentialist' }
+  { 
+    id: 'path-planner', 
+    name: 'Path Planner',
+    description: 'Inspired by Chip & Dan Heath'
+  },
+  { 
+    id: 'atomic-habits', 
+    name: 'Atomic Habits',
+    description: 'Inspired by James Clear'
+  },
+  { 
+    id: 'essentialist', 
+    name: 'Essentialist',
+    description: 'Inspired by Greg McKeown'
+  }
 ];
 
 const ChatbotSelector = ({ selectedChatbot, onSelectChatbot }) => {
@@ -37,7 +49,16 @@ const ChatbotSelector = ({ selectedChatbot, onSelectChatbot }) => {
                 selected={selectedChatbot === chatbot.id}
                 onClick={() => onSelectChatbot(chatbot.id)}
               >
-                <ListItemText primary={chatbot.name} />
+                <ListItemText 
+                  primary={chatbot.name}
+                  secondary={chatbot.description}
+                  secondaryTypographyProps={{
+                    sx: {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: '0.75rem'
+                    }
+                  }}
+                />
               </ListItemButton>
             </ListItem>
           ))}
