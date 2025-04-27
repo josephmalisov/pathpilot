@@ -21,8 +21,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Use the specific Assistant ID
-const ASSISTANT_ID = 'asst_c4kI5II18ObMEAfs5fAxDSPH';
+// Define assistant IDs
+const ASSISTANTS = {
+  'path-planner': 'asst_c4kI5II18ObMEAfs5fAxDSPH',  // Existing Path Planner assistant
+  'atomic-habits': 'asst_u1UIib7yww7O7AzxHy5rBBpx'  // Atomic Habits assistant
+};
 
 // Define the function that indicates completion
 const functions = [
@@ -89,8 +92,14 @@ app.post('/api/decide', async (req, res) => {
       url: req.url
     });
 
-    const { prompt, threadId } = req.body;
+    const { prompt, threadId, assistantId = 'path-planner' } = req.body;
     
+    // Get the appropriate assistant ID
+    const selectedAssistantId = ASSISTANTS[assistantId];
+    if (!selectedAssistantId) {
+      throw new Error(`Invalid assistant ID: ${assistantId}`);
+    }
+
     // Use existing thread or create a new one
     let thread;
     if (threadId) {
@@ -110,9 +119,9 @@ app.post('/api/decide', async (req, res) => {
     });
     
     // Run the assistant with function calling enabled
-    console.log('Creating run with assistant:', ASSISTANT_ID);
+    console.log('Creating run with assistant:', selectedAssistantId);
     const run = await openai.beta.threads.runs.create(thread.id, {
-      assistant_id: ASSISTANT_ID,
+      assistant_id: selectedAssistantId,
       tools: [{ type: "function", function: functions[0] }]
     });
     console.log('Created run:', run.id);

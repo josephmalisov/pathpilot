@@ -18,6 +18,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import { generatePDF } from './utils/pdfGenerator';
+import ChatbotSelector from './components/ChatbotSelector';
 
 const theme = createTheme({
   palette: {
@@ -74,6 +75,7 @@ function App() {
   const [threadId, setThreadId] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const [selectedChatbot, setSelectedChatbot] = useState('path-planner');
 
   // Add useEffect for auto-focus
   useEffect(() => {
@@ -95,45 +97,33 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
-    const userMessage = input.trim();
-    setInput('');
     setLoading(true);
-    setError('');
-    
-    // Add user message to chat and history
+    setError(null);
+    const userMessage = input;
+    setInput('');
     setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
-    setMessageHistory(prev => [userMessage, ...prev]);
-    setHistoryIndex(-1);
 
     try {
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/decide`;
-      console.log('Sending request to:', apiUrl);
-      console.log('Request payload:', { prompt: userMessage, threadId });
-      
-      const result = await axios.post(apiUrl, { 
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/decide`, {
         prompt: userMessage,
-        threadId 
-      }, {
-        timeout: 30000, // 30 second timeout
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        threadId: threadId,
+        assistantId: selectedChatbot
       });
       
-      console.log('Received response:', result.data);
+      console.log('Received response:', response.data);
       
-      if (!result.data || !result.data.response) {
+      if (!response.data || !response.data.response) {
         throw new Error('Invalid response format from server');
       }
       
       setMessages(prev => [...prev, { 
         type: 'assistant', 
-        content: result.data.response,
-        isComplete: result.data.isComplete 
+        content: response.data.response,
+        isComplete: response.data.isComplete 
       }]);
-      setThreadId(result.data.threadId);
+      setThreadId(response.data.threadId);
     } catch (err) {
       console.error('Detailed error:', {
         message: err.message,
@@ -197,161 +187,167 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="md">
-        <Box sx={{ my: 4 }}>
-          <Typography 
-            variant="h3" 
-            component="h1" 
-            gutterBottom 
-            align="center" 
-            sx={{ 
-              color: 'primary.main',
-              fontFamily: 'Garamond, serif'
-            }}
-          >
-            PathPilot
-          </Typography>
-          
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              p: 2, 
-              height: '60vh', 
-              overflow: 'auto',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <List sx={{ flex: 1, overflow: 'auto' }}>
-              {messages.map((message, index) => (
-                <ListItem key={index} sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: message.type === 'user' ? 'flex-end' : 'flex-start',
-                  mb: 2
-                }}>
-                  <Box sx={{ 
-                    maxWidth: '80%',
-                    backgroundColor: message.type === 'user' ? 'rgba(144, 202, 249, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                    color: message.type === 'user' ? 'white' : 'text.primary',
-                    borderRadius: 2,
-                    p: 2,
-                    position: 'relative',
-                    border: 'none',
+      <Box sx={{ display: 'flex', height: '100vh' }}>
+        <ChatbotSelector 
+          selectedChatbot={selectedChatbot}
+          onSelectChatbot={setSelectedChatbot}
+        />
+        <Container maxWidth="lg" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Box sx={{ my: 4 }}>
+            <Typography 
+              variant="h3" 
+              component="h1" 
+              gutterBottom 
+              align="center" 
+              sx={{ 
+                color: 'primary.main',
+                fontFamily: 'Garamond, serif'
+              }}
+            >
+              PathPilot
+            </Typography>
+            
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 2, 
+                height: '60vh', 
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <List sx={{ flex: 1, overflow: 'auto' }}>
+                {messages.map((message, index) => (
+                  <ListItem key={index} sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: message.type === 'user' ? 'flex-end' : 'flex-start',
+                    mb: 2
                   }}>
-                    <Typography
-                      component="div"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        fontSize: '0.95em',
-                        '& p': { mb: 0.15, lineHeight: 1.2 },
-                        '& ul, & ol': { pl: 1.25, mb: 0.15 },
-                        '& li': { mb: 0.1, lineHeight: 1.2 },
-                        '& h1, & h2, & h3, & h4, & h5, & h6': { 
-                          color: message.type === 'user' ? 'white' : 'primary.main',
-                          mt: 0.15,
-                          mb: 0.15,
-                          fontWeight: 'bold',
-                          lineHeight: 1.2,
-                          fontSize: '1.1em'
-                        },
-                        '& code': {
-                          backgroundColor: message.type === 'user' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                          padding: '0 2px',
-                          borderRadius: 1,
-                          fontFamily: 'monospace',
-                          fontSize: '0.8em'
-                        },
-                        '& blockquote': {
-                          borderLeft: `2px solid ${message.type === 'user' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)'}`,
-                          pl: 0.75,
-                          ml: 0,
-                          fontStyle: 'italic',
-                          my: 0.15
-                        },
-                      }}
-                    >
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                      {message.type === 'assistant' && message.isComplete && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => handleExportPDF(message.content)}
-                          sx={{ 
-                            color: 'primary.main',
-                            borderColor: 'primary.main',
-                            '&:hover': {
+                    <Box sx={{ 
+                      maxWidth: '80%',
+                      backgroundColor: message.type === 'user' ? 'rgba(144, 202, 249, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                      color: message.type === 'user' ? 'white' : 'text.primary',
+                      borderRadius: 2,
+                      p: 2,
+                      position: 'relative',
+                      border: 'none',
+                    }}>
+                      <Typography
+                        component="div"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          fontSize: '0.95em',
+                          '& p': { mb: 0.15, lineHeight: 1.2 },
+                          '& ul, & ol': { pl: 1.25, mb: 0.15 },
+                          '& li': { mb: 0.1, lineHeight: 1.2 },
+                          '& h1, & h2, & h3, & h4, & h5, & h6': { 
+                            color: message.type === 'user' ? 'white' : 'primary.main',
+                            mt: 0.15,
+                            mb: 0.15,
+                            fontWeight: 'bold',
+                            lineHeight: 1.2,
+                            fontSize: '1.1em'
+                          },
+                          '& code': {
+                            backgroundColor: message.type === 'user' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                            padding: '0 2px',
+                            borderRadius: 1,
+                            fontFamily: 'monospace',
+                            fontSize: '0.8em'
+                          },
+                          '& blockquote': {
+                            borderLeft: `2px solid ${message.type === 'user' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)'}`,
+                            pl: 0.75,
+                            ml: 0,
+                            fontStyle: 'italic',
+                            my: 0.15
+                          },
+                        }}
+                      >
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        {message.type === 'assistant' && message.isComplete && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleExportPDF(message.content)}
+                            sx={{ 
+                              color: 'primary.main',
                               borderColor: 'primary.main',
-                              backgroundColor: 'rgba(144, 202, 249, 0.15)',
-                            },
-                          }}
-                        >
-                          Export Plan
-                        </Button>
-                      )}
-                    </Box>
-                  </Box>
-                </ListItem>
-              ))}
-              {loading && (
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CircularProgress size={20} sx={{ color: 'secondary.main' }} />
-                        <Typography>Thinking...</Typography>
+                              '&:hover': {
+                                borderColor: 'primary.main',
+                                backgroundColor: 'rgba(144, 202, 249, 0.15)',
+                              },
+                            }}
+                          >
+                            Export Plan
+                          </Button>
+                        )}
                       </Box>
-                    }
-                  />
-                </ListItem>
-              )}
-              <div ref={messagesEndRef} />
-            </List>
-          </Paper>
-
-          {error && (
-            <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.dark' }}>
-              <Typography color="error">{error}</Typography>
+                    </Box>
+                  </ListItem>
+                ))}
+                {loading && (
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CircularProgress size={20} sx={{ color: 'secondary.main' }} />
+                          <Typography>Thinking...</Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                )}
+                <div ref={messagesEndRef} />
+              </List>
             </Paper>
-          )}
 
-          <Paper elevation={3} sx={{ p: 2, bgcolor: 'background.paper' }}>
-            <form onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                maxRows={12}
-                variant="outlined"
-                label="Type your message"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe your decision-making scenario... (Press Enter to send, Shift+Enter for new line, ↑/↓ for history)"
-                sx={{ mb: 2 }}
-                inputRef={inputRef}
-              />
-              <ButtonGroup fullWidth variant="contained" sx={{ gap: 1 }}>
-                <Button
-                  type="submit"
-                  disabled={loading || !input.trim()}
-                  sx={{
-                    flex: 1,
-                    bgcolor: 'primary.main',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                  }}
-                >
-                  Send
-                </Button>
-              </ButtonGroup>
-            </form>
-          </Paper>
-        </Box>
-      </Container>
+            {error && (
+              <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.dark' }}>
+                <Typography color="error">{error}</Typography>
+              </Paper>
+            )}
+
+            <Paper elevation={3} sx={{ p: 2, bgcolor: 'background.paper' }}>
+              <form onSubmit={handleSubmit}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  maxRows={12}
+                  variant="outlined"
+                  label="Type your message"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe your decision-making scenario... (Press Enter to send, Shift+Enter for new line, ↑/↓ for history)"
+                  sx={{ mb: 2 }}
+                  inputRef={inputRef}
+                />
+                <ButtonGroup fullWidth variant="contained" sx={{ gap: 1 }}>
+                  <Button
+                    type="submit"
+                    disabled={loading || !input.trim()}
+                    sx={{
+                      flex: 1,
+                      bgcolor: 'primary.main',
+                      '&:hover': {
+                        bgcolor: 'primary.dark',
+                      },
+                    }}
+                  >
+                    Send
+                  </Button>
+                </ButtonGroup>
+              </form>
+            </Paper>
+          </Box>
+        </Container>
+      </Box>
     </ThemeProvider>
   );
 }
