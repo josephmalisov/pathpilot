@@ -24,7 +24,8 @@ app.use(express.json());
 // Define assistant IDs
 const ASSISTANTS = {
   'path-planner': 'asst_c4kI5II18ObMEAfs5fAxDSPH',  // Existing Path Planner assistant
-  'atomic-habits': 'asst_u1UIib7yww7O7AzxHy5rBBpx'  // Atomic Habits assistant
+  'atomic-habits': 'asst_u1UIib7yww7O7AzxHy5rBBpx',  // Atomic Habits assistant
+  'essentialist': 'asst_4dmqCKLko93MgdG1cypeQzPX'  // Essentialist assistant
 };
 
 // Define the function that indicates completion

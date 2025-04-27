@@ -11,7 +11,8 @@ import {
 
 const chatbots = [
   { id: 'path-planner', name: 'Path Planner' },
-  { id: 'atomic-habits', name: 'Atomic Habits' }
+  { id: 'atomic-habits', name: 'Atomic Habits' },
+  { id: 'essentialist', name: 'Essentialist' }
 ];
 
 const ChatbotSelector = ({ selectedChatbot, onSelectChatbot }) => {
