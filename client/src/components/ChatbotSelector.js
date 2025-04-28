@@ -13,17 +13,17 @@ const chatbots = [
   { 
     id: 'path-planner', 
     name: 'Decision Bot',
-    description: 'Inspired by Chip & Dan Heath'
+    description: 'Inspiration: Decisive by Chip & Dan Heath'
   },
   { 
     id: 'atomic-habits', 
-    name: 'Atomic Habits',
-    description: 'Inspired by James Clear'
+    name: 'Habit Doctor',
+    description: 'Inspiration: Atomic Habits by James Clear'
   },
   { 
     id: 'essentialist', 
     name: 'Essentialist',
-    description: 'Inspired by Greg McKeown'
+    description: 'Inspiration: Essentialism by Greg McKeown'
   }
 ];
 
@@ -50,14 +50,19 @@ const ChatbotSelector = ({ selectedChatbot, onSelectChatbot }) => {
                 onClick={() => onSelectChatbot(chatbot.id)}
               >
                 <ListItemText 
-                  primary={chatbot.name}
-                  secondary={chatbot.description}
-                  secondaryTypographyProps={{
-                    sx: {
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      fontSize: '0.75rem'
-                    }
-                  }}
+                  primary={
+                    <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>
+                      {chatbot.name}
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                      {chatbot.description.split(' by ')[0]} by{' '}
+                      <Typography component="span" sx={{ fontWeight: 'bold', fontSize: 'inherit' }}>
+                        {chatbot.description.split(' by ')[1]}
+                      </Typography>
+                    </Typography>
+                  }
                 />
               </ListItemButton>
             </ListItem>
