@@ -12,7 +12,7 @@ import {
 const chatbots = [
   { 
     id: 'path-planner', 
-    name: 'Path Planner',
+    name: 'Decision Bot',
     description: 'Inspired by Chip & Dan Heath'
   },
   { 
