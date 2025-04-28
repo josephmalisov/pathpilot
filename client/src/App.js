@@ -19,6 +19,7 @@ import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import { generatePDF } from './utils/pdfGenerator';
 import ChatbotSelector from './components/ChatbotSelector';
+import StickyPathPlanBanner from './components/StickyPathPlanBanner';
 
 const theme = createTheme({
   palette: {
@@ -73,6 +74,7 @@ function App() {
   const [messageHistory, setMessageHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [threadId, setThreadId] = useState(null);
+  const [latestPathPlan, setLatestPathPlan] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [selectedChatbot, setSelectedChatbot] = useState('path-planner');
@@ -99,6 +101,9 @@ function App() {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
+    // Clear latest PathPlan when user sends a new message
+    setLatestPathPlan(null);
+
     setLoading(true);
     setError(null);
     const userMessage = input;
@@ -118,11 +123,22 @@ function App() {
         throw new Error('Invalid response format from server');
       }
       
-      setMessages(prev => [...prev, { 
+      const newMessage = { 
         type: 'assistant', 
         content: response.data.response,
         isComplete: response.data.isComplete 
-      }]);
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      
+      // If this is a PathPlan message, update the latest PathPlan
+      if (response.data.isComplete) {
+        setLatestPathPlan({
+          content: response.data.response,
+          timestamp: Date.now()
+        });
+      }
+
       setThreadId(response.data.threadId);
     } catch (err) {
       console.error('Detailed error:', {
@@ -192,7 +208,13 @@ function App() {
           selectedChatbot={selectedChatbot}
           onSelectChatbot={setSelectedChatbot}
         />
-        <Container maxWidth="lg" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Container maxWidth="md" sx={{ 
+          flexGrow: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          height: '100%',
+          px: { xs: 2, sm: 4 }
+        }}>
           <Box sx={{ my: 4 }}>
             <Typography 
               variant="h3" 
@@ -214,7 +236,8 @@ function App() {
                 height: '60vh', 
                 overflow: 'auto',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                mb: 2
               }}
             >
               <List sx={{ flex: 1, overflow: 'auto' }}>
@@ -311,6 +334,11 @@ function App() {
                 <Typography color="error">{error}</Typography>
               </Paper>
             )}
+
+            <StickyPathPlanBanner 
+              latestPathPlan={latestPathPlan}
+              onExport={() => setLatestPathPlan(null)}
+            />
 
             <Paper elevation={3} sx={{ p: 2, bgcolor: 'background.paper' }}>
               <form onSubmit={handleSubmit}>
