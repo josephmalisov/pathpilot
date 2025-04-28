@@ -203,7 +203,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', height: '100vh' }}>
+      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         <ChatbotSelector 
           selectedChatbot={selectedChatbot}
           onSelectChatbot={setSelectedChatbot}
@@ -213,17 +213,23 @@ function App() {
           display: 'flex', 
           flexDirection: 'column', 
           height: '100%',
-          px: { xs: 2, sm: 4 }
+          px: { xs: 2, sm: 4 },
+          py: 2
         }}>
-          <Box sx={{ my: 4 }}>
+          <Box sx={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            gap: 2
+          }}>
             <Typography 
               variant="h3" 
               component="h1" 
-              gutterBottom 
               align="center" 
               sx={{ 
                 color: 'primary.main',
-                fontFamily: 'Garamond, serif'
+                fontFamily: 'Garamond, serif',
+                mb: 1
               }}
             >
               PathPilot
@@ -233,11 +239,10 @@ function App() {
               elevation={3} 
               sx={{ 
                 p: 2, 
-                height: '60vh', 
+                flex: 1,
                 overflow: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
-                mb: 2
               }}
             >
               <List sx={{ flex: 1, overflow: 'auto' }}>
@@ -330,7 +335,7 @@ function App() {
             </Paper>
 
             {error && (
-              <Paper elevation={3} sx={{ p: 2, mb: 2, bgcolor: 'error.dark' }}>
+              <Paper elevation={3} sx={{ p: 1, mb: 1, bgcolor: 'error.dark' }}>
                 <Typography color="error">{error}</Typography>
               </Paper>
             )}
@@ -340,7 +345,7 @@ function App() {
               onExport={() => setLatestPathPlan(null)}
             />
 
-            <Paper elevation={3} sx={{ p: 2, bgcolor: 'background.paper' }}>
+            <Paper elevation={3} sx={{ p: 1, bgcolor: 'background.paper' }}>
               <form onSubmit={handleSubmit}>
                 <TextField
                   fullWidth
@@ -353,7 +358,7 @@ function App() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Describe your decision-making scenario... (Press Enter to send, Shift+Enter for new line, ↑/↓ for history)"
-                  sx={{ mb: 2 }}
+                  sx={{ mb: 1 }}
                   inputRef={inputRef}
                 />
                 <ButtonGroup fullWidth variant="contained" sx={{ gap: 1 }}>

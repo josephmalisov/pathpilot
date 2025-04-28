@@ -39,7 +39,6 @@ const StickyPathPlanBanner = ({ latestPathPlan, onExport }) => {
           justifyContent: 'center',
           alignItems: 'center',
           gap: 1,
-          mb: 1,
           position: 'relative',
           overflow: 'visible'
         }}
@@ -55,7 +54,7 @@ const StickyPathPlanBanner = ({ latestPathPlan, onExport }) => {
                 variant="h6"
                 sx={{
                   position: 'absolute',
-                  top: -35,
+                  top: -25,
                   left: '50%',
                   transform: 'translateX(-50%)',
                   color: 'primary.main',
@@ -64,7 +63,7 @@ const StickyPathPlanBanner = ({ latestPathPlan, onExport }) => {
                   animation: 'float 2s ease-in-out',
                   '@keyframes float': {
                     '0%': { transform: 'translate(-50%, 0)', opacity: 1 },
-                    '100%': { transform: 'translate(-50%, -30px)', opacity: 0 }
+                    '100%': { transform: 'translate(-50%, -20px)', opacity: 0 }
                   }
                 }}
               >
