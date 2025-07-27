@@ -24,6 +24,11 @@ const chatbots = [
     id: 'essentialist', 
     name: 'Essentialist',
     description: 'Inspiration: Essentialism by Greg McKeown'
+  },
+  { 
+    id: 'flow-zone', 
+    name: 'Flow Zone',
+    description: 'Inspiration: Deep Work by Cal Newport'
   }
 ];
 
