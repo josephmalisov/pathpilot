@@ -118,4 +118,8 @@ Thumbs.db
 
 # Local development files
 .env.example
-.env.template 
+.env.template
+
+# Documentation files with sensitive information
+AUTHENTICATION_SETUP.md
+GOOGLE_CALENDAR_SETUP.md 

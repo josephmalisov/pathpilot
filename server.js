@@ -490,6 +490,8 @@ app.get('/api/auth/google/test', (req, res) => {
   }
 });
 
+
+
 // Handle Google Calendar OAuth callback
 app.get('/api/auth/google/callback', async (req, res) => {
   try {
@@ -515,14 +517,40 @@ app.get('/api/auth/google/callback', async (req, res) => {
     
     // Store tokens in Supabase for the user
     console.log('Storing tokens for user:', userId);
-    const { error } = await supabaseAdmin
+    
+    // First check if user already has tokens
+    const { data: existingToken, error: checkError } = await supabaseAdmin
       .from('user_calendar_tokens')
-      .upsert({
-        user_id: userId,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expiry_date: new Date(tokens.expiry_date).toISOString()
-      });
+      .select('user_id')
+      .eq('user_id', userId)
+      .single();
+
+    let error;
+    if (existingToken) {
+      // Update existing tokens
+      console.log('Updating existing tokens for user:', userId);
+      const { error: updateError } = await supabaseAdmin
+        .from('user_calendar_tokens')
+        .update({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date: new Date(tokens.expiry_date).toISOString()
+        })
+        .eq('user_id', userId);
+      error = updateError;
+    } else {
+      // Insert new tokens
+      console.log('Inserting new tokens for user:', userId);
+      const { error: insertError } = await supabaseAdmin
+        .from('user_calendar_tokens')
+        .insert({
+          user_id: userId,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date: new Date(tokens.expiry_date).toISOString()
+        });
+      error = insertError;
+    }
 
     if (error) {
       console.error('Error storing tokens:', error);
@@ -530,10 +558,24 @@ app.get('/api/auth/google/callback', async (req, res) => {
     }
 
     console.log('Tokens stored successfully');
-    res.json({ success: true, message: 'Calendar connected successfully' });
+    
+    // Redirect to frontend with success
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (!frontendUrl) {
+      console.error('FRONTEND_URL environment variable not set');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    res.redirect(`${frontendUrl}/?connected=true`);
   } catch (error) {
     console.error('Error in OAuth callback:', error);
-    res.status(500).json({ error: 'Failed to complete authorization' });
+    
+    // Redirect to frontend with error
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (!frontendUrl) {
+      console.error('FRONTEND_URL environment variable not set');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    res.redirect(`${frontendUrl}/?error=connection_failed`);
   }
 });
 

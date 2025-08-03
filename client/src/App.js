@@ -120,6 +120,25 @@ function AppContent() {
     scrollToBottom();
   }, [input]);
 
+  // Handle URL parameters from OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const connected = urlParams.get('connected');
+    const error = urlParams.get('error');
+    
+    if (connected === 'true') {
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Switch to calendar view
+      setCurrentView('calendar');
+    } else if (error === 'connection_failed') {
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Switch to calendar view to show error
+      setCurrentView('calendar');
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim() || loadingChat) return;
@@ -289,7 +308,23 @@ function AppContent() {
         {/* App Bar */}
         <AppBar position="static" elevation={0}>
           <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                flexGrow: 1, 
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.8
+                }
+              }}
+              onClick={() => {
+                setCurrentView('chat');
+                setMessages([]);
+                setThreadId(null);
+                setLatestPathPlan(null);
+              }}
+            >
               PathPilot
             </Typography>
             

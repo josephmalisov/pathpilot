@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -82,60 +82,8 @@ const Calendar = () => {
       
       console.log('Received auth URL:', response.data.authUrl);
       
-      // Open Google OAuth in new window
-      const authWindow = window.open(
-        response.data.authUrl,
-        'google-auth',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
-      );
-
-      if (!authWindow) {
-        setError('Popup blocked! Please allow popups for this site and try again.');
-        setLoading(false);
-        return;
-      }
-
-      // Listen for the callback
-      let checkCount = 0;
-      const maxChecks = 150; // 5 minutes with 2-second intervals
-      
-      const checkAuth = setInterval(async () => {
-        checkCount++;
-        console.log(`Checking auth status... (attempt ${checkCount}/${maxChecks})`);
-        
-        try {
-          const checkResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/calendar/calendars`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
-          
-          console.log('Calendar connection successful!');
-          clearInterval(checkAuth);
-          authWindow.close();
-          setIsConnected(true);
-          fetchEvents();
-          setLoading(false);
-        } catch (error) {
-          console.log('Still not connected, continuing to check...');
-          
-          if (checkCount >= maxChecks) {
-            console.log('Max checks reached, stopping...');
-            clearInterval(checkAuth);
-            authWindow.close();
-            setError('Connection timeout. Please try again.');
-            setLoading(false);
-          }
-        }
-      }, 2000);
-
-      // Also listen for window close
-      const checkWindowClosed = setInterval(() => {
-        if (authWindow.closed) {
-          console.log('Auth window was closed by user');
-          clearInterval(checkAuth);
-          clearInterval(checkWindowClosed);
-          setLoading(false);
-        }
-      }, 1000);
+      // Open Google OAuth in the same window
+      window.location.href = response.data.authUrl;
 
     } catch (error) {
       console.error('Error connecting to Google Calendar:', error);
