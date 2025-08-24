@@ -1,5 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+console.log('Supabase URL:', process.env.REACT_APP_SUPABASE_URL);
+console.log('Supabase Anon Key:', process.env.REACT_APP_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
 
 const AuthContext = createContext();
 
@@ -13,90 +22,100 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+  useEffect(() => {
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      setLoading(false);
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user || null);
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = useCallback(async () => {
+  const signUp = async (email, password, name) => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/profile`);
-      setUser(response.data.user);
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  }, [logout]);
-
-  // Set up axios interceptor for authentication
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUserProfile();
-    } else {
-      setLoading(false);
-    }
-  }, [token, fetchUserProfile]);
-
-  const register = async (email, password, name) => {
-    try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, {
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        name
+        options: {
+          data: {
+            name: name
+          }
+        }
       });
-      
-      const { user: newUser, token: newToken } = response.data;
-      setUser(newUser);
-      setToken(newToken);
-      localStorage.setItem('token', newToken);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-      
-      return { success: true };
+
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Registration failed' 
-      };
+      return { data: null, error };
     }
   };
 
-  const login = async (email, password) => {
+  const signIn = async (email, password) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-      
-      const { user: loggedInUser, token: newToken } = response.data;
-      setUser(loggedInUser);
-      setToken(newToken);
-      localStorage.setItem('token', newToken);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-      
-      return { success: true };
+
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Login failed' 
-      };
+      return { data: null, error };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const resetPassword = async (email) => {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  };
+
+  const updateProfile = async (updates) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error };
     }
   };
 
   const value = {
     user,
-    token,
     loading,
-    register,
-    login,
-    logout
+    signUp,
+    signIn,
+    signOut,
+    resetPassword,
+    updateProfile,
+    supabase
   };
 
   return (

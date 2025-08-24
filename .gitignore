@@ -112,6 +112,14 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Migration files
+*.sql
+migrate-*.sql
+migrate-*.js
+
+# Admin/Utility scripts with sensitive operations
+migrate-users.js
+
 # Backup files
 *.bak
 *.backup
@@ -122,4 +130,59 @@ Thumbs.db
 
 # Documentation files with sensitive information
 AUTHENTICATION_SETUP.md
-GOOGLE_CALENDAR_SETUP.md 
+GOOGLE_CALENDAR_SETUP.md
+
+# API Keys and Secrets
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+credentials.json
+service-account*.json
+
+# Local configuration files
+config.local.js
+config.local.json
+local.config.js
+local.config.json
+
+# Test files with sensitive data
+test-secrets.json
+test-credentials.json
+
+# Deployment files with secrets (only ignore if they contain secrets)
+# vercel.json - keep this as it contains only deployment config
+netlify.toml
+firebase.json
+firebase-debug.log
+firebase-debug.*.log
+
+# Local SSL certificates
+*.crt
+*.csr
+*.srl
+
+# Local database dumps
+*.dump
+*.sql.gz
+*.sql.bz2
+
+# Local backup files
+backup/
+backups/
+
+# Local development scripts
+scripts/local/
+scripts/dev/
+
+# Local documentation
+docs/local/
+docs/dev/
+
+# Local environment overrides
+.env.*.local
+.env.development
+.env.test
+.env.staging
+.env.production 

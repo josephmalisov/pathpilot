@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { 
   Container, 
   TextField, 
@@ -36,6 +37,7 @@ import StickyPathPlanBanner from './components/StickyPathPlanBanner';
 import AuthModal from './components/AuthModal';
 import ChatHistory from './components/ChatHistory';
 import Calendar from './components/Calendar';
+import PasswordReset from './components/PasswordReset';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 const theme = createTheme({
@@ -84,7 +86,11 @@ const theme = createTheme({
 });
 
 function AppContent() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, signOut, supabase } = useAuth();
+  const location = useLocation();
+  
+  // Check if we're on the password reset page
+  const isPasswordResetPage = location.pathname === '/reset-password';
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loadingChat, setLoadingChat] = useState(false);
@@ -120,18 +126,37 @@ function AppContent() {
     scrollToBottom();
   }, [input]);
 
+  // Close user menu when user logs in (only when user changes from null to a user object)
+  const hasHandledLogin = useRef(false);
+  
+  useEffect(() => {
+    if (user && userMenuAnchor && !hasHandledLogin.current) {
+      console.log('User just logged in, closing user menu');
+      setUserMenuAnchor(null);
+      hasHandledLogin.current = true;
+    } else if (!user) {
+      hasHandledLogin.current = false;
+    }
+  }, [user, userMenuAnchor]);
+
   // Handle URL parameters from OAuth callback
   useEffect(() => {
+    console.log('Checking URL parameters:', window.location.search);
     const urlParams = new URLSearchParams(window.location.search);
     const connected = urlParams.get('connected');
+    const success = urlParams.get('success');
     const error = urlParams.get('error');
     
-    if (connected === 'true') {
+    console.log('URL parameters found:', { connected, success, error });
+    
+    if (connected === 'true' || success === 'true') {
+      console.log('OAuth successful, switching to calendar view');
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
       // Switch to calendar view
       setCurrentView('calendar');
     } else if (error === 'connection_failed') {
+      console.log('OAuth failed, switching to calendar view to show error');
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
       // Switch to calendar view to show error
@@ -278,11 +303,31 @@ function AppContent() {
   };
 
   const handleLogout = () => {
-    logout();
+    signOut();
     setMessages([]);
     setThreadId(null);
     setLatestPathPlan(null);
     handleUserMenuClose();
+  };
+
+  const handlePasswordReset = async () => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) {
+        console.error('Password reset error:', error);
+        alert('Failed to send password reset email. Please try again.');
+      } else {
+        alert('Password reset email sent! Check your inbox.');
+      }
+      
+      handleUserMenuClose();
+    } catch (error) {
+      console.error('Password reset error:', error);
+      alert('Failed to send password reset email. Please try again.');
+    }
   };
 
   if (loading) {
@@ -297,6 +342,16 @@ function AppContent() {
         }}>
           <CircularProgress />
         </Box>
+      </ThemeProvider>
+    );
+  }
+
+  // Show password reset page if on that route
+  if (isPasswordResetPage) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <PasswordReset />
       </ThemeProvider>
     );
   }
@@ -378,7 +433,13 @@ function AppContent() {
                       {user.name || user.email}
                     </Typography>
                   </MenuItem>
-                  <MenuItem onClick={handleLogout}>
+                  <MenuItem onClick={handlePasswordReset}>
+                    <Typography variant="body2" sx={{ mr: 1 }}>
+                      🔑
+                    </Typography>
+                    Reset Password
+                  </MenuItem>
+                  <MenuItem onClick={signOut}>
                     <LogoutIcon sx={{ mr: 1 }} />
                     Logout
                   </MenuItem>
@@ -603,9 +664,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }
 

@@ -1,144 +1,120 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Button,
   Box,
-  Alert,
-  CircularProgress,
-  Tabs,
-  Tab
+  Typography,
+  Alert
 } from '@mui/material';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { useAuth } from '../contexts/AuthContext';
 
 const AuthModal = ({ open, onClose }) => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: ''
-  });
+  const { supabase, user } = useAuth();
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login, register } = useAuth();
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-    setError('');
-    setFormData({ email: '', password: '', name: '' });
-  };
-
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      let result;
-      if (activeTab === 0) {
-        // Login
-        result = await login(formData.email, formData.password);
-      } else {
-        // Register
-        result = await register(formData.email, formData.password, formData.name);
-      }
-
-      if (result.success) {
-        onClose();
-        setFormData({ email: '', password: '', name: '' });
-      } else {
-        setError(result.error);
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
+  // Close modal when user is authenticated
+  useEffect(() => {
+    if (user && open) {
+      console.log('User authenticated, closing modal');
+      onClose();
     }
-  };
+  }, [user, open, onClose]);
 
-  const isFormValid = () => {
-    if (activeTab === 0) {
-      return formData.email && formData.password;
-    } else {
-      return formData.email && formData.password && formData.name;
+  const handleAuthStateChange = (event, session) => {
+    console.log('Auth state change:', event, session);
+    if (event === 'SIGNED_IN' || event === 'SIGNED_UP') {
+      console.log('Closing auth modal after successful auth');
+      onClose();
+      setError('');
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Tabs value={activeTab} onChange={handleTabChange} centered>
-          <Tab label="Login" />
-          <Tab label="Register" />
-        </Tabs>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          backgroundColor: '#424242',
+          color: '#ffffff',
+        }
+      }}
+    >
+      <DialogTitle sx={{ color: '#ffffff' }}>
+        <Typography variant="h5" component="div" sx={{ color: '#ffffff' }}>
+          Sign In / Sign Up
+        </Typography>
       </DialogTitle>
       <DialogContent>
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2 }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
           
-          {activeTab === 1 && (
-            <TextField
-              fullWidth
-              label="Name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              margin="normal"
-              required
-            />
-          )}
-          
-          <TextField
-            fullWidth
-            label="Email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            margin="normal"
-            required
+          <Auth
+            supabaseClient={supabase}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#90caf9',
+                    brandAccent: '#f48fb1',
+                    brandButtonText: '#ffffff',
+                    defaultButtonBackground: '#90caf9',
+                    defaultButtonBackgroundHover: '#64b5f6',
+                    defaultButtonText: '#ffffff',
+                    dividerBackground: '#424242',
+                    inputBackground: '#424242',
+                    inputBorder: '#616161',
+                    inputLabelText: '#ffffff',
+                    inputPlaceholder: '#bdbdbd',
+                    inputText: '#ffffff',
+                    anchorTextColor: '#90caf9',
+                    anchorTextHoverColor: '#64b5f6',
+                  },
+                  borderWidths: {
+                    inputBorderWidth: '1px',
+                    buttonBorderWidth: '1px',
+                  },
+                  radii: {
+                    borderRadiusButton: '4px',
+                    buttonBorderRadius: '4px',
+                    inputBorderRadius: '4px',
+                  },
+                },
+              },
+            }}
+            providers={[]}
+            redirectTo={window.location.origin}
+            onAuthStateChange={handleAuthStateChange}
+            view="sign_in"
+            showLinks={true}
           />
-          
-          <TextField
-            fullWidth
-            label="Password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            margin="normal"
-            required
-          />
-          
-          <DialogActions sx={{ mt: 3, px: 0 }}>
-            <Button onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={!isFormValid() || loading}
-              startIcon={loading ? <CircularProgress size={20} /> : null}
-            >
-              {activeTab === 0 ? 'Login' : 'Register'}
-            </Button>
-          </DialogActions>
         </Box>
       </DialogContent>
+      <DialogActions sx={{ backgroundColor: '#424242' }}>
+        <Button 
+          onClick={onClose} 
+          sx={{ 
+            color: '#90caf9',
+            '&:hover': {
+              backgroundColor: 'rgba(144, 202, 249, 0.1)',
+            }
+          }}
+        >
+          Cancel
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };

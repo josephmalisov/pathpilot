@@ -37,11 +37,12 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const Calendar = () => {
-  const { user } = useAuth();
+  const { user, supabase } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventForm, setEventForm] = useState({
@@ -54,19 +55,48 @@ const Calendar = () => {
 
   // Check if user has connected Google Calendar
   useEffect(() => {
-    checkCalendarConnection();
+    if (user) {
+      checkCalendarConnection();
+    }
+  }, [user]);
+
+  // Check connection status when component mounts or URL changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const connected = urlParams.get('connected');
+    const success = urlParams.get('success');
+    
+    if (connected === 'true' || success === 'true') {
+      // Force a connection check after OAuth redirect
+      setTimeout(() => {
+        checkCalendarConnection();
+      }, 500);
+    }
   }, []);
 
   const checkCalendarConnection = async () => {
     try {
+      setIsCheckingConnection(true);
+      console.log('Checking calendar connection...');
+      const session = await supabase.auth.getSession();
+      if (!session.data.session?.access_token) {
+        console.log('No valid session found');
+        setIsConnected(false);
+        return;
+      }
+      
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/calendar/calendars`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${session.data.session.access_token}` }
       });
+      console.log('Calendar connection successful:', response.data);
       setIsConnected(true);
       fetchEvents();
     } catch (error) {
+      console.error('Calendar connection check failed:', error);
       setIsConnected(false);
-      console.log('Calendar not connected');
+      // Don't set error here as it's expected for users who haven't connected their calendar
+    } finally {
+      setIsCheckingConnection(false);
     }
   };
 
@@ -77,7 +107,7 @@ const Calendar = () => {
       
       console.log('Requesting Google auth URL...');
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/google`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
       });
       
       console.log('Received auth URL:', response.data.authUrl);
@@ -95,8 +125,14 @@ const Calendar = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
+      const session = await supabase.auth.getSession();
+      if (!session.data.session?.access_token) {
+        setError('Authentication required. Please sign in again.');
+        return;
+      }
+      
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/calendar/events`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${session.data.session.access_token}` },
         params: {
           maxResults: 20,
           timeMin: new Date().toISOString()
@@ -104,7 +140,14 @@ const Calendar = () => {
       });
       setEvents(response.data.events || []);
     } catch (error) {
-      setError('Failed to fetch events');
+      console.error('Error fetching events:', error);
+      if (error.response?.status === 401) {
+        setError('Calendar not connected. Please connect your Google Calendar first.');
+      } else if (error.response?.data?.error) {
+        setError(`Failed to fetch events: ${error.response.data.error}`);
+      } else {
+        setError('Failed to fetch events. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -148,12 +191,12 @@ const Calendar = () => {
       if (selectedEvent) {
         // Update existing event
         await axios.put(`${process.env.REACT_APP_API_URL}/api/calendar/events/${selectedEvent.id}`, eventData, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
         });
       } else {
         // Create new event
         await axios.post(`${process.env.REACT_APP_API_URL}/api/calendar/events`, eventData, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
         });
       }
 
@@ -171,7 +214,7 @@ const Calendar = () => {
       try {
         setLoading(true);
         await axios.delete(`${process.env.REACT_APP_API_URL}/api/calendar/events/${eventId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` }
         });
         fetchEvents();
       } catch (error) {
@@ -205,6 +248,24 @@ const Calendar = () => {
     return colors[colorId] || colors['1'];
   };
 
+  // Show loading page while checking connection
+  if (isCheckingConnection) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <CircularProgress sx={{ fontSize: 60, mb: 2 }} />
+          <Typography variant="h5" gutterBottom>
+            Loading Calendar...
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Please wait while we check your calendar connection.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Show OAuth connection UI only after we've confirmed user is not connected
   if (!isConnected) {
     return (
       <Box sx={{ p: 3 }}>

@@ -60,6 +60,10 @@ class GoogleCalendarService {
   // Get events from a specific calendar
   async getEvents(calendarId = 'primary', timeMin = new Date(), maxResults = 10) {
     try {
+      console.log('Calendar service: Getting events for calendarId:', calendarId);
+      console.log('Calendar service: timeMin:', timeMin);
+      console.log('Calendar service: maxResults:', maxResults);
+      
       const response = await this.calendar.events.list({
         auth: this.oauth2Client,
         calendarId: calendarId,
@@ -68,9 +72,15 @@ class GoogleCalendarService {
         singleEvents: true,
         orderBy: 'startTime'
       });
+      
+      console.log('Calendar service: Response received, items count:', response.data.items ? response.data.items.length : 0);
       return response.data.items;
     } catch (error) {
-      console.error('Error getting events:', error);
+      console.error('Calendar service: Error getting events:', error);
+      console.error('Calendar service: Error details:', error.message);
+      if (error.response) {
+        console.error('Calendar service: Error response:', error.response.data);
+      }
       throw error;
     }
   }

@@ -4,7 +4,6 @@ const cors = require('cors');
 const OpenAI = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const GoogleCalendarService = require('./googleCalendarService');
 
 const app = express();
@@ -27,8 +26,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SECRET_KEY
 );
 
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
@@ -40,8 +38,8 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Authentication middleware
-const authenticateToken = (req, res, next) => {
+// Authentication middleware for Supabase Auth
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -49,13 +47,24 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
+  try {
+    // Verify the token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
       return res.status(403).json({ error: 'Invalid token' });
     }
-    req.user = user;
+    
+    // Add userId to the user object for consistency with database schema
+    req.user = {
+      ...user,
+      userId: user.id
+    };
     next();
-  });
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(403).json({ error: 'Invalid token' });
+  }
 };
 
 // Define assistant IDs
@@ -122,126 +131,7 @@ function cleanResponse(content) {
   return content.replace(/\s*<function_calls>[\s\S]*?<\/function_calls>\s*$/, '').trim();
 }
 
-// User registration endpoint
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { email, password, name } = req.body;
 
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
-    }
-
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user using admin client to bypass RLS
-    const { data: user, error } = await supabaseAdmin
-      .from('users')
-      .insert([
-        {
-          email,
-          password: hashedPassword,
-          name
-        }
-      ])
-      .select('id, email, name')
-      .single();
-
-    if (error) {
-      console.error('Supabase error:', error);
-      return res.status(500).json({ error: 'Failed to create user' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      user: { id: user.id, email: user.email, name: user.name },
-      token
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// User login endpoint
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    // Get user using admin client to bypass RLS
-    const { data: user, error } = await supabaseAdmin
-      .from('users')
-      .select('id, email, password, name')
-      .eq('email', email)
-      .single();
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      user: { id: user.id, email: user.email, name: user.name },
-      token
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get user profile endpoint
-app.get('/api/auth/profile', authenticateToken, async (req, res) => {
-  try {
-    const { data: user, error } = await supabaseAdmin
-      .from('users')
-      .select('id, email, name')
-      .eq('id', req.user.userId)
-      .single();
-
-    if (error || !user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json({ user });
-  } catch (error) {
-    console.error('Profile error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
 
 // Save chat session endpoint
 app.post('/api/chats', authenticateToken, async (req, res) => {
@@ -336,7 +226,7 @@ app.delete('/api/chats/:chatId', authenticateToken, async (req, res) => {
   try {
     const { chatId } = req.params;
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('chats')
       .delete()
       .eq('id', chatId)
@@ -510,25 +400,31 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
     const userId = state; // Extract user ID from state parameter
     console.log('Processing callback for user:', userId);
+    console.log('User ID type:', typeof userId);
+    
+    // Use the user ID from the state parameter directly
+    // The state parameter contains the user ID that was passed when generating the OAuth URL
+    const authenticatedUserId = userId;
+    console.log('Using user ID from state parameter:', authenticatedUserId);
 
     console.log('Exchanging code for tokens...');
     const tokens = await calendarService.getTokensFromCode(code);
     console.log('Tokens received successfully');
     
     // Store tokens in Supabase for the user
-    console.log('Storing tokens for user:', userId);
+    console.log('Storing tokens for user:', authenticatedUserId);
     
     // First check if user already has tokens
     const { data: existingToken, error: checkError } = await supabaseAdmin
       .from('user_calendar_tokens')
       .select('user_id')
-      .eq('user_id', userId)
+      .eq('user_id', authenticatedUserId)
       .single();
 
     let error;
     if (existingToken) {
       // Update existing tokens
-      console.log('Updating existing tokens for user:', userId);
+      console.log('Updating existing tokens for user:', authenticatedUserId);
       const { error: updateError } = await supabaseAdmin
         .from('user_calendar_tokens')
         .update({
@@ -536,15 +432,15 @@ app.get('/api/auth/google/callback', async (req, res) => {
           refresh_token: tokens.refresh_token,
           expiry_date: new Date(tokens.expiry_date).toISOString()
         })
-        .eq('user_id', userId);
+        .eq('user_id', authenticatedUserId);
       error = updateError;
     } else {
       // Insert new tokens
-      console.log('Inserting new tokens for user:', userId);
+      console.log('Inserting new tokens for user:', authenticatedUserId);
       const { error: insertError } = await supabaseAdmin
         .from('user_calendar_tokens')
         .insert({
-          user_id: userId,
+          user_id: authenticatedUserId,
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           expiry_date: new Date(tokens.expiry_date).toISOString()
@@ -565,7 +461,23 @@ app.get('/api/auth/google/callback', async (req, res) => {
       console.error('FRONTEND_URL environment variable not set');
       return res.status(500).json({ error: 'Server configuration error' });
     }
-    res.redirect(`${frontendUrl}/?connected=true`);
+    
+    console.log('Redirecting to frontend:', `${frontendUrl}/?connected=true&success=true`);
+    
+    // Send a simple HTML response with a redirect
+    res.send(`
+      <html>
+        <head>
+          <title>Redirecting...</title>
+        </head>
+        <body>
+          <p>OAuth successful! Redirecting to calendar...</p>
+          <script>
+            window.location.href = '${frontendUrl}/?connected=true&success=true';
+          </script>
+        </body>
+      </html>
+    `);
   } catch (error) {
     console.error('Error in OAuth callback:', error);
     
@@ -582,14 +494,19 @@ app.get('/api/auth/google/callback', async (req, res) => {
 // Get user's calendars
 app.get('/api/calendar/calendars', authenticateToken, async (req, res) => {
   try {
-    // Get user's stored tokens
-    const { data: tokenData, error } = await supabase
+    console.log('Calendar request from user:', req.user.userId);
+    
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
       .from('user_calendar_tokens')
       .select('access_token, refresh_token')
       .eq('user_id', req.user.userId)
       .single();
 
+    console.log('Token lookup result:', { tokenData, error });
+
     if (error || !tokenData) {
+      console.log('No tokens found for user:', req.user.userId);
       return res.status(401).json({ error: 'Calendar not connected' });
     }
 
@@ -611,8 +528,8 @@ app.get('/api/calendar/events', authenticateToken, async (req, res) => {
   try {
     const { calendarId = 'primary', timeMin, maxResults = 10 } = req.query;
     
-    // Get user's stored tokens
-    const { data: tokenData, error } = await supabase
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
       .from('user_calendar_tokens')
       .select('access_token, refresh_token')
       .eq('user_id', req.user.userId)
@@ -628,8 +545,16 @@ app.get('/api/calendar/events', authenticateToken, async (req, res) => {
     });
 
     const startTime = timeMin ? new Date(timeMin) : new Date();
-    const events = await calendarService.getEvents(calendarId, startTime, maxResults);
-    res.json({ events });
+    console.log('Fetching events for calendar:', calendarId, 'from:', startTime, 'maxResults:', maxResults);
+    
+    try {
+      const events = await calendarService.getEvents(calendarId, startTime, maxResults);
+      console.log('Successfully fetched events:', events ? events.length : 0, 'events');
+      res.json({ events });
+    } catch (calendarError) {
+      console.error('Calendar service error:', calendarError);
+      res.status(500).json({ error: 'Failed to fetch events from Google Calendar' });
+    }
   } catch (error) {
     console.error('Error getting events:', error);
     res.status(500).json({ error: 'Failed to get events' });
@@ -645,8 +570,8 @@ app.post('/api/calendar/events', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Summary, startTime, and endTime are required' });
     }
 
-    // Get user's stored tokens
-    const { data: tokenData, error } = await supabase
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
       .from('user_calendar_tokens')
       .select('access_token, refresh_token')
       .eq('user_id', req.user.userId)
@@ -678,6 +603,78 @@ app.post('/api/calendar/events', authenticateToken, async (req, res) => {
   }
 });
 
+// Update calendar event
+app.put('/api/calendar/events/:eventId', authenticateToken, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { summary, description, startTime, endTime, timeZone, colorId } = req.body;
+    
+    if (!summary || !startTime || !endTime) {
+      return res.status(400).json({ error: 'Summary, startTime, and endTime are required' });
+    }
+
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
+      .from('user_calendar_tokens')
+      .select('access_token, refresh_token')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    if (error || !tokenData) {
+      return res.status(401).json({ error: 'Calendar not connected' });
+    }
+
+    calendarService.setCredentials({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token
+    });
+
+    const eventData = {
+      summary,
+      description,
+      startTime,
+      endTime,
+      timeZone: timeZone || 'UTC',
+      colorId
+    };
+
+    const event = await calendarService.updateEvent(eventId, eventData);
+    res.json({ event });
+  } catch (error) {
+    console.error('Error updating event:', error);
+    res.status(500).json({ error: 'Failed to update event' });
+  }
+});
+
+// Delete calendar event
+app.delete('/api/calendar/events/:eventId', authenticateToken, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
+      .from('user_calendar_tokens')
+      .select('access_token, refresh_token')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    if (error || !tokenData) {
+      return res.status(401).json({ error: 'Calendar not connected' });
+    }
+
+    calendarService.setCredentials({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token
+    });
+
+    await calendarService.deleteEvent(eventId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    res.status(500).json({ error: 'Failed to delete event' });
+  }
+});
+
 // Create recurring event (for habits)
 app.post('/api/calendar/recurring-events', authenticateToken, async (req, res) => {
   try {
@@ -687,8 +684,8 @@ app.post('/api/calendar/recurring-events', authenticateToken, async (req, res) =
       return res.status(400).json({ error: 'Summary, startTime, endTime, and recurrence are required' });
     }
 
-    // Get user's stored tokens
-    const { data: tokenData, error } = await supabase
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
       .from('user_calendar_tokens')
       .select('access_token, refresh_token')
       .eq('user_id', req.user.userId)
@@ -730,8 +727,8 @@ app.get('/api/calendar/free-busy', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'timeMin and timeMax are required' });
     }
 
-    // Get user's stored tokens
-    const { data: tokenData, error } = await supabase
+    // Get user's stored tokens using admin client (bypass RLS until migration is complete)
+    const { data: tokenData, error } = await supabaseAdmin
       .from('user_calendar_tokens')
       .select('access_token, refresh_token')
       .eq('user_id', req.user.userId)
