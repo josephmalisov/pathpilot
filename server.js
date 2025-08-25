@@ -15,12 +15,32 @@ const openai = new OpenAI({
 });
 
 // Initialize Supabase
+console.log('Supabase URL:', process.env.SUPABASE_URL);
+console.log('Supabase Anon Key:', process.env.SUPABASE_ANON_KEY ? 'Present' : 'Missing');
+
+if (!process.env.SUPABASE_URL) {
+  console.error('ERROR: SUPABASE_URL environment variable is not set!');
+  process.exit(1);
+}
+
+if (!process.env.SUPABASE_ANON_KEY) {
+  console.error('ERROR: SUPABASE_ANON_KEY environment variable is not set!');
+  process.exit(1);
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
 
 // Initialize Supabase with secret key for admin operations
+console.log('Supabase Secret Key:', process.env.SUPABASE_SECRET_KEY ? 'Present' : 'Missing');
+
+if (!process.env.SUPABASE_SECRET_KEY) {
+  console.error('ERROR: SUPABASE_SECRET_KEY environment variable is not set!');
+  process.exit(1);
+}
+
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SECRET_KEY
